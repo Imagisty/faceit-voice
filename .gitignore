@@ -1,0 +1,11 @@
+/.venv/
+/.faceit_voice_deps/
+/build/
+/dist/
+/*.spec
+__pycache__/
+*.py[cod]
+*.dem
+*.dem.zst
+*.opus
+*.wav
