@@ -6,7 +6,7 @@
 
 1. Открой [последний релиз](https://github.com/Imagisty/faceit-voice/releases/latest).
 2. В разделе **Assets** скачай **FACEIT-Voice.exe**.
-3. Запусти EXE. Установка, Python и Rust для запуска не нужны. Поддерживаются Windows 10/11 x64.
+3. Запусти **FACEIT-Voice.exe**. Поддерживаются Windows 10/11 x64.
 4. Нажми **Выбрать файл** и укажи демку `.dem.zst` или `.dem`. После выбора она разберётся автоматически. Также можно вставить путь и нажать **Разобрать демку**.
 
 ## Что умеет
@@ -64,7 +64,7 @@ FACEIT Voice is a Windows application that reads FACEIT CS2 demos, generates voi
 
 1. Open the [latest release](https://github.com/Imagisty/faceit-voice/releases/latest).
 2. Download **FACEIT-Voice.exe** from **Assets**.
-3. Run the EXE. No installation, Python, or Rust is required. Windows 10/11 x64 is supported.
+3. Run **FACEIT-Voice.exe**. Windows 10/11 x64 is supported.
 4. Click **Выбрать файл** (Choose file) and select a `.dem.zst` or `.dem` demo. It will be parsed automatically. You can also paste a path and click **Разобрать демку** (Parse demo).
 
 ### Features
