@@ -11,6 +11,7 @@ import tkinter as tk
 from tkinter import filedialog, font as tkfont
 
 from faceit_voice import analyze_demo, commands, export_audio
+from switch_art import SWITCH_IMAGES
 
 BG = "#14171C"
 PANEL = "#1C2027"
@@ -105,6 +106,11 @@ class Switch(tk.Canvas):
                          highlightthickness=0, bd=0, takefocus=True, cursor="hand2")
         self.variable, self.command, self.color = variable, command, color
         self.enabled = True
+        root = self._root()
+        if not hasattr(root, "_switch_images"):
+            root._switch_images = {name: tk.PhotoImage(master=root, data=data)
+                                   for name, data in SWITCH_IMAGES.items()}
+        self.images = root._switch_images
         self.bind("<Button-1>", self.toggle)
         self.bind("<space>", self.toggle)
         self.bind("<Return>", self.toggle)
@@ -126,10 +132,10 @@ class Switch(tk.Canvas):
         enabled = self.variable.get()
         self.create_text(14, 17, text="Да" if enabled else "Нет", fill=self.color if enabled else MUTED,
                          font=("Segoe UI", 9))
-        outline = TEXT if self.focus_get() is self else ""
-        rounded(self, 37, 6, 79, 28, 11, fill=self.color if enabled else "#414B58", outline=outline)
-        x = 66 if enabled else 50
-        self.create_oval(x - 8, 9, x + 8, 25, fill=BG if enabled else "#D4DAE3", outline="")
+        state = ("orange" if self.color == ACCENT else "blue") if enabled else "off"
+        if self.focus_get() is self:
+            state += "_focus"
+        self.create_image(35, 3, anchor="nw", image=self.images[state])
 
 
 class PlayerRow(tk.Frame):
@@ -342,7 +348,7 @@ class App:
         footer.pack_propagate(False)
         self.status_label = self.label(footer, textvariable=self.status, color=MUTED, size=9, anchor="w")
         self.status_label.pack(side="left", fill="x", expand=True)
-        self.label(footer, "FACEIT Voice 1.3", color=DIM, size=9).pack(side="right", padx=(12, 0))
+        self.label(footer, "FACEIT Voice 1.3.1", color=DIM, size=9).pack(side="right", padx=(12, 0))
         self.clear_result()
 
     def resize_roster(self, team):
