@@ -12,7 +12,7 @@ Get **`FACEIT-Voice.exe`** from the [latest release](https://github.com/Imagisty
 
 1. Download a match demo from the FACEIT matchroom (`.dem.zst`) or use an unpacked `.dem` file.
 2. Open `FACEIT-Voice.exe`, select the demo, and click **Разобрать демку**.
-3. Copy the line for **Команда 1** or **Команда 2**. To hear specific players, switch **Слушать** to **Да** for them and copy the command under **Выбранные игроки**.
+3. Click **Копировать команду** below either team roster. To hear specific players, turn on their switches and click **Копировать микс** in the right panel. **Выбрать всех** selects the full match roster; **Сбросить** clears the selection.
 4. Play the demo in CS2 and paste the copied line into the developer console.
 
 Each copied line sets both `tv_listen_voice_indices` and `tv_listen_voice_indices_h`. The second value is normally `0` in a 5v5 match because those players use slots below 33.
@@ -21,7 +21,7 @@ The app can read `.dem.zst` directly to calculate the commands. CS2 itself needs
 
 ## По-русски
 
-Скачай `FACEIT-Voice.exe` из [последнего релиза](https://github.com/Imagisty/faceit-voice/releases/latest), открой демку FACEIT (`.dem.zst` или `.dem`) и нажми **Разобрать демку**. В окне появятся две готовые команды для команд матча и список игроков. Переключай **Слушать: Да/Нет**, чтобы собрать команду для любых игроков. Скопированную строку вставь в консоль CS2 при просмотре демки.
+Скачай `FACEIT-Voice.exe` из [последнего релиза](https://github.com/Imagisty/faceit-voice/releases/latest), открой демку FACEIT (`.dem.zst` или `.dem`) и нажми **Разобрать демку**. Игроки появятся в двух колонках. Нажми **Копировать команду** под нужным составом или включи переключатели конкретных игроков и нажми **Копировать микс** справа. Скопированную строку вставь в консоль CS2 при просмотре демки.
 
 Программа читает файл локально и не требует аккаунта FACEIT или установленного Python. Для просмотра через `playdemo` архив `.dem.zst` нужно отдельно распаковать в `.dem`.
 
