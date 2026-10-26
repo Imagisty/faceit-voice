@@ -1,51 +1,109 @@
 # FACEIT Voice
 
-Windows app that reads a Counter-Strike 2 FACEIT demo and generates console commands for listening to either team or any selection of players. The demo is parsed locally; there is no upload or account connection.
+Программа для Windows, которая читает демки CS2 с FACEIT, создаёт команды для прослушивания игроков и сохраняет их голоса в аудиодорожки.
 
-![Windows](https://img.shields.io/badge/Windows-10%20%2F%2011-0078d4) ![License](https://img.shields.io/badge/license-MIT-orange)
+## Скачать и запустить
 
-## Download
+1. Открой [последний релиз](https://github.com/Imagisty/faceit-voice/releases/latest).
+2. В разделе **Assets** скачай **FACEIT-Voice.exe**.
+3. Запусти EXE. Установка, Python и Rust для запуска не нужны. Поддерживаются Windows 10/11 x64.
+4. Нажми **Выбрать файл** и укажи демку `.dem.zst` или `.dem`. После выбора она разберётся автоматически. Также можно вставить путь и нажать **Разобрать демку**.
 
-Get **`FACEIT-Voice.exe`** from the [latest release](https://github.com/Imagisty/faceit-voice/releases/latest). It is a standalone Windows x64 executable; Python is not required.
+## Что умеет
 
-## Use
+- Показывает игроков, ники и составы двух команд.
+- Создаёт консольную команду для прослушивания одной команды или любых выбранных игроков.
+- Позволяет выбрать всех игроков, сбросить выбор и включать голоса по одному.
+- Извлекает голосовые записи в отдельные аудиодорожки `.opus` с никами игроков в названиях файлов.
+- Позволяет выбрать папку для сохранения аудио.
+- Читает как обычные `.dem`, так и сжатые `.dem.zst`.
 
-1. Download a match demo from the FACEIT matchroom (`.dem.zst`) or use an unpacked `.dem` file.
-2. Open `FACEIT-Voice.exe`, select the demo, and click **Разобрать демку**.
-3. Click **Копировать команду** below either team roster. To hear specific players, turn on their switches and click **Копировать микс** in the right panel. **Выбрать всех** selects the full match roster; **Сбросить** clears the selection.
-4. Play the demo in CS2 and paste the copied line into the developer console.
+## Слушать голоса в CS2
 
-Each copied line sets both `tv_listen_voice_indices` and `tv_listen_voice_indices_h`. The second value is normally `0` in a 5v5 match because those players use slots below 33.
+Нажми **Копировать команду** под нужным составом. Для произвольного набора включи переключатели рядом с никами и нажми **Копировать команду** справа.
 
-The app can read `.dem.zst` directly to calculate the commands. CS2 itself needs an unpacked `.dem` file for `playdemo`. Voice must be present in the demo; FACEIT SourceTV demos normally contain it, while Valve matchmaking and Premier demos do not. The app generates playback commands; it does not export audio.
+Открой эту демку в CS2 и вставь скопированную строку в консоль. Она задаёт оба параметра: `tv_listen_voice_indices` и `tv_listen_voice_indices_h`. Значение второго параметра `0` нормально для игроков со слотами 0–31.
 
-## По-русски
+Для `playdemo` в CS2 нужен распакованный `.dem`. Приложение может прочитать `.dem.zst` напрямую.
 
-Скачай `FACEIT-Voice.exe` из [последнего релиза](https://github.com/Imagisty/faceit-voice/releases/latest), открой демку FACEIT (`.dem.zst` или `.dem`) и нажми **Разобрать демку**. Игроки появятся в двух колонках. Нажми **Копировать команду** под нужным составом или включи переключатели конкретных игроков и нажми **Копировать микс** справа. Скопированную строку вставь в консоль CS2 при просмотре демки.
+## Сохранить аудиодорожки
 
-Программа читает файл локально и не требует аккаунта FACEIT или установленного Python. Для просмотра через `playdemo` архив `.dem.zst` нужно отдельно распаковать в `.dem`.
+1. Разбери демку и выбери игроков переключателями. Для целой команды нажми **Выбрать** над её списком.
+2. В блоке **Аудиодорожки** нажми **Выбрать папку**.
+3. Нажми **Сохранить аудио**.
+4. В выбранной папке появится новая подпапка `FACEIT-Voice-…` с файлами `ник_SteamID.opus`.
 
-## Run from source
+Каждый файл содержит голос одного игрока. Реплики склеены подряд без пауз между ними: это компактная запись речи, без привязки ко времени демки. Дорожки разных игроков не смешиваются; звуки игры в них не входят. Формат — Ogg/Opus, без повторного кодирования. Для прослушивания подойдёт плеер с поддержкой Opus, например VLC.
 
-Install Python 3.12+ and Rust, then build the parser once:
+Экспорт работает, только если голосовые записи есть в самой демке. Если игрок молчал или его голос не записан, приложение сообщит об этом. Каждый экспорт создаёт новую подпапку и не перезаписывает предыдущие записи.
+
+## Запуск из исходников и сборка
+
+Нужны Python 3.12+ и Rust с инструментами сборки для Windows.
 
 ```powershell
 cargo build --release --manifest-path parser\Cargo.toml
 python faceit_voice_gui.pyw
 ```
 
-For a command-line version:
+Сборка единого EXE:
 
 ```powershell
-python faceit_voice.py "C:\path\to\match.dem.zst"
+.\build.ps1
 ```
 
-## Build the executable
+Результат: `dist\FACEIT-Voice.exe`.
 
-Run `build.ps1` on Windows with Python 3.12 and Rust. It builds the small Rust demo parser and packages it with the Tkinter GUI into `dist\FACEIT-Voice.exe`. The build only needs PyInstaller from `requirements-build.txt`.
+---
 
-## Privacy and attribution
+## English
 
-All demo parsing happens on your PC. A compressed demo is unpacked into a temporary file and removed after parsing. This project is unofficial and is not affiliated with FACEIT, Valve, or Counter-Strike. Third-party packages used by the executable are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+FACEIT Voice is a Windows application that reads FACEIT CS2 demos, generates voice playback commands, and exports players' voice recordings to audio tracks.
 
-Licensed under [MIT](LICENSE).
+### Download and run
+
+1. Open the [latest release](https://github.com/Imagisty/faceit-voice/releases/latest).
+2. Download **FACEIT-Voice.exe** from **Assets**.
+3. Run the EXE. No installation, Python, or Rust is required. Windows 10/11 x64 is supported.
+4. Click **Выбрать файл** (Choose file) and select a `.dem.zst` or `.dem` demo. It will be parsed automatically. You can also paste a path and click **Разобрать демку** (Parse demo).
+
+### Features
+
+- Two team rosters with player names and individual voice switches.
+- Console commands for an entire team or any selection of players.
+- Select all and clear selection controls.
+- Voice extraction to separate `.opus` tracks named after each player.
+- An audio output folder picker.
+- Support for both `.dem` and compressed `.dem.zst` files.
+
+### Listen in CS2
+
+Click **Копировать команду** (Copy command) under a team roster, or select individual players and use the copy button on the right. Play the same demo in CS2 and paste the command into the developer console.
+
+Each command sets both `tv_listen_voice_indices` and `tv_listen_voice_indices_h`. The second value being `0` is normal when the selected voice slots are below 32. CS2's `playdemo` requires an unpacked `.dem`; the app itself can read `.dem.zst` directly.
+
+### Export voice tracks
+
+1. Parse a demo and select players. Use **Выбрать** (Select) above a roster to select a whole team.
+2. Click **Выбрать папку** (Choose folder) in the audio section.
+3. Click **Сохранить аудио** (Save audio).
+4. Open the new `FACEIT-Voice-…` subfolder inside your selected folder. Files are named `nickname_SteamID.opus`.
+
+Each file contains one player's speech, concatenated without gaps between transmissions. Demo timing is not preserved. Players are not mixed together, and game sounds are not included. Tracks use the Ogg/Opus format without re-encoding; open them with an Opus-compatible player such as VLC.
+
+The demo must contain voice recordings. Players without recorded speech are reported. Every export creates a new subfolder and preserves previous exports.
+
+### Run from source and build
+
+Install Python 3.12+ and Rust with Windows build tools:
+
+```powershell
+cargo build --release --manifest-path parser\Cargo.toml
+python faceit_voice_gui.pyw
+```
+
+Run `build.ps1` to create `dist\FACEIT-Voice.exe`.
+
+---
+
+MIT License. Неофициальный проект, не связан с FACEIT или Valve. Unofficial project, not affiliated with FACEIT or Valve. See [third-party notices](THIRD_PARTY_NOTICES.md).

@@ -10,7 +10,7 @@ import threading
 import tkinter as tk
 from tkinter import filedialog, font as tkfont
 
-from faceit_voice import analyze_demo, commands
+from faceit_voice import analyze_demo, commands, export_audio
 
 BG = "#14171C"
 PANEL = "#1C2027"
@@ -104,6 +104,7 @@ class Switch(tk.Canvas):
         super().__init__(parent, width=82, height=34, bg=parent.cget("bg"),
                          highlightthickness=0, bd=0, takefocus=True, cursor="hand2")
         self.variable, self.command, self.color = variable, command, color
+        self.enabled = True
         self.bind("<Button-1>", self.toggle)
         self.bind("<space>", self.toggle)
         self.bind("<Return>", self.toggle)
@@ -113,6 +114,8 @@ class Switch(tk.Canvas):
         self.bind("<Configure>", self.paint)
 
     def toggle(self, event=None):
+        if not self.enabled:
+            return "break"
         self.focus_set()
         self.variable.set(not self.variable.get())
         self.command()
@@ -180,8 +183,12 @@ class App:
         self.apply_window_style()
         self.events = queue.Queue()
         self.path = tk.StringVar()
-        self.status = tk.StringVar(value="Выбери демку, чтобы увидеть игроков и их команды.")
+        self.status = tk.StringVar(value="")
         self.match = tk.StringVar(value="Демка не выбрана")
+        self.audio_directory = tk.StringVar()
+        self.loaded_demo = None
+        self.pending_demo = None
+        self.exporting = False
         self.custom_command = tk.StringVar(value="")
         self.player_rows = []
         self.teams = []
@@ -217,7 +224,7 @@ class App:
         main.pack(fill="both", expand=True)
         main.columnconfigure(0, weight=1)
         main.rowconfigure(3, weight=1)
-        header = tk.Frame(main, bg=BG, height=70)
+        header = tk.Frame(main, bg=BG, height=54)
         header.grid(row=0, column=0, sticky="ew")
         header.pack_propagate(False)
         logo = tk.Canvas(header, width=42, height=44, bg=BG, highlightthickness=0)
@@ -227,8 +234,6 @@ class App:
         title = tk.Frame(header, bg=BG)
         title.pack(side="left", anchor="n")
         tk.Label(title, text="FACEIT Voice", bg=BG, fg=TEXT, font=("Bahnschrift", 25), bd=0).pack(anchor="w")
-        self.label(title, "Голоса матча — под твоим контролем", color=MUTED).pack(anchor="w", pady=(2, 0))
-        self.label(header, "●  Локально на твоём ПК", color=GREEN, size=9).pack(side="right", anchor="n", pady=15)
 
         file_panel = Surface(main, height=98, padding=16)
         file_panel.grid(row=1, column=0, sticky="ew", pady=(8, 0))
@@ -246,7 +251,7 @@ class App:
         self.run_button = Button(file_body, "Разобрать демку", self.start, width=162, primary=True)
         self.run_button.grid(row=1, column=2)
 
-        section = tk.Frame(main, bg=BG, height=64)
+        section = tk.Frame(main, bg=BG, height=54)
         section.grid(row=2, column=0, sticky="ew")
         section.pack_propagate(False)
         self.label(section, "Кого слушаем?", size=16, bold=True).pack(side="left")
@@ -270,7 +275,7 @@ class App:
             card = surface.content
             card.columnconfigure(0, weight=1)
             card.rowconfigure(1, weight=1)
-            team_header = tk.Frame(card, bg=PANEL, height=52)
+            team_header = tk.Frame(card, bg=PANEL, height=48)
             team_header.grid(row=0, column=0, sticky="ew")
             team_header.pack_propagate(False)
             self.label(team_header, f"Команда {number}", size=14, color=color, bold=True).pack(side="left", anchor="n", pady=4)
@@ -295,53 +300,61 @@ class App:
         output = Surface(body, padding=20, color="#20252D", width=316)
         output.grid(row=0, column=2, sticky="nsew")
         right = output.content
-        self.label(right, "Твой голосовой микс", size=14, bold=True).pack(anchor="w")
         count_row = tk.Frame(right, bg=right.cget("bg"))
-        count_row.pack(fill="x", pady=(20, 0))
-        self.count = tk.Label(count_row, text="0", bg=right.cget("bg"), fg=TEXT, font=("Bahnschrift", 42), bd=0)
+        count_row.pack(fill="x", pady=(4, 0))
+        self.count = tk.Label(count_row, text="0", bg=right.cget("bg"), fg=TEXT, font=("Bahnschrift", 34), bd=0)
         self.count.pack(side="left", anchor="s")
         self.total = self.label(count_row, "игроков выбрано", color=MUTED, size=10)
         self.total.pack(side="left", anchor="s", padx=(10, 0), pady=(0, 10))
         self.meter = tk.Canvas(right, height=18, bg=right.cget("bg"), highlightthickness=0)
-        self.meter.pack(fill="x", pady=(8, 20))
+        self.meter.pack(fill="x", pady=(4, 12))
         self.meter.bind("<Configure>", lambda e: self.paint_meter())
         self.label(right, "Команда для консоли CS2", size=9, color=MUTED).pack(anchor="w", pady=(0, 10))
-        code_box = tk.Frame(right, bg=BG, padx=12, pady=14)
+        code_box = tk.Frame(right, bg=BG, padx=12, pady=10)
         code_box.pack(fill="x")
         self.code = tk.Label(code_box, text="Выбери игроков\nпереключателями слева", bg=BG, fg=MUTED,
-                             font=("Consolas", 9), anchor="w", justify="left", height=3, bd=0)
+                             font=("Consolas", 9), anchor="w", justify="left", height=2, bd=0)
         self.code.pack(fill="x")
-        self.custom_copy = Button(right, "Копировать микс", self.copy_custom, primary=True, height=44)
+        self.custom_copy = Button(right, "Копировать команду", self.copy_custom, primary=True, height=44)
         self.custom_copy.pack(fill="x", pady=(12, 0))
         self.custom_copy.set_enabled(False)
         self.feedback = self.label(right, "", size=9, color=GREEN)
         self.feedback.pack(anchor="w", pady=(8, 0))
-        self.help_label = self.label(right, "Открой демку в CS2 и вставь\nкоманду в консоль.", color=MUTED, size=10,
-                                    justify="left", anchor="w")
-        self.help_label.pack(side="bottom", anchor="w", pady=(10, 0))
-        right.bind("<Configure>", self.resize_output)
+        audio_panel = Surface(main, height=100, padding=16)
+        audio_panel.grid(row=4, column=0, sticky="ew", pady=(12, 0))
+        audio_body = audio_panel.content
+        audio_body.columnconfigure(0, weight=1)
+        self.label(audio_body, "Аудиодорожки", bold=True).grid(row=0, column=0, sticky="w", pady=(0, 8))
+        self.label(audio_body, "Отдельный .opus для каждого выбранного игрока", size=9, color=MUTED).grid(
+            row=0, column=1, columnspan=2, sticky="e", pady=(0, 8))
+        self.folder_entry = tk.Entry(audio_body, textvariable=self.audio_directory, bg=FIELD, fg=TEXT,
+                                    insertbackground=ACCENT, relief="flat", bd=0,
+                                    highlightthickness=1, highlightbackground=BORDER, highlightcolor=ACCENT)
+        self.folder_entry.grid(row=1, column=0, sticky="ew", ipady=9, padx=(0, 10))
+        self.folder_button = Button(audio_body, "Выбрать папку", self.choose_audio_folder, width=134)
+        self.folder_button.grid(row=1, column=1, padx=(0, 8))
+        self.export_button = Button(audio_body, "Сохранить аудио", self.start_export, width=162, primary=True)
+        self.export_button.grid(row=1, column=2)
+        self.export_button.set_enabled(False)
 
-        footer = tk.Frame(main, bg=BG, height=42)
-        footer.grid(row=4, column=0, sticky="ew")
+        footer = tk.Frame(main, bg=BG, height=30)
+        footer.grid(row=5, column=0, sticky="ew")
         footer.pack_propagate(False)
         self.status_label = self.label(footer, textvariable=self.status, color=MUTED, size=9, anchor="w")
         self.status_label.pack(side="left", fill="x", expand=True)
-        self.label(footer, "FACEIT Voice 1.2", color=DIM, size=9).pack(side="right", padx=(12, 0))
+        self.label(footer, "FACEIT Voice 1.3", color=DIM, size=9).pack(side="right", padx=(12, 0))
         self.clear_result()
 
     def resize_roster(self, team):
         viewport = team["viewport"]
         viewport.itemconfigure(team["window"], width=viewport.winfo_width())
         rows = [child for child in team["roster"].winfo_children() if isinstance(child, PlayerRow)]
-        height = max(38, min(58, viewport.winfo_height() // max(5, len(rows)) - 2))
+        available = viewport.winfo_height() // max(5, len(rows))
+        gap = 2 if available >= 42 else 0
+        height = max(34, min(58, available - gap))
         for row in rows:
             row.configure(height=height)
-
-    def resize_output(self, event):
-        if event.height >= 420:
-            self.help_label.pack(side="bottom", anchor="w", pady=(10, 0))
-        else:
-            self.help_label.pack_forget()
+            row.pack_configure(pady=(0, gap))
 
     def show_empty(self, text="Выбери демку матча", detail="Здесь появятся игроки команды"):
         for team in self.teams:
@@ -351,6 +364,7 @@ class App:
             self.label(team["roster"], detail, size=9, color=MUTED).pack()
 
     def clear_result(self):
+        self.loaded_demo = None
         self.player_rows.clear()
         for team in self.teams:
             team["command"] = ""
@@ -379,6 +393,7 @@ class App:
             self.status.set("Выбери файл или вставь путь к демке в поле выше.")
             return
         self.busy = True
+        self.pending_demo = path
         self.run_button.set_enabled(False)
         self.browse_button.set_enabled(False)
         self.run_button.set_text("Читаю демку…")
@@ -416,11 +431,21 @@ class App:
                     self.status.set(value.replace("\n", " ")[:150])
                     self.status_label.configure(fg=ACCENT)
                     self.show_empty("Не удалось прочитать файл", "Попробуй выбрать другую демку")
+                elif kind == "export_done":
+                    self.finish_export()
+                    suffix = f"; без записанного голоса: {len(value['missing'])}" if value["missing"] else ""
+                    self.status.set(f"Сохранено дорожек: {len(value['tracks'])}{suffix}. {value['directory']}")
+                    self.feedback.configure(text=f"✓  Сохранено дорожек: {len(value['tracks'])}")
+                elif kind == "export_error":
+                    self.finish_export()
+                    self.status.set(value.replace("\n", " ")[:160])
+                    self.status_label.configure(fg=ACCENT)
         except queue.Empty:
             pass
         self.root.after(100, self.poll_events)
 
     def show_result(self, result):
+        self.loaded_demo = self.pending_demo
         self.player_rows.clear()
         for team in self.teams:
             for child in team["roster"].winfo_children():
@@ -438,7 +463,7 @@ class App:
                     widget.bind("<MouseWheel>", team["scroll"])
                 self.player_rows.append(row)
         self.match.set(f"{result['map']}  /  {result['found']} игроков")
-        self.status.set("Выбирай игроков или скопируй команду для всего состава.")
+        self.status.set("")
         if result["found"] < result["expected"]:
             self.status.set(f"Найдено {result['found']} из {result['expected']} игроков. Часть игроков могла подключиться позже.")
         self.all_button.set_enabled(True)
@@ -470,7 +495,64 @@ class App:
             self.custom_command.set("")
             self.code.configure(text="Выбери игроков\nпереключателями слева", fg=MUTED)
         self.custom_copy.set_enabled(bool(selected))
+        self.export_button.set_enabled(bool(selected) and not self.busy and bool(self.loaded_demo))
         self.paint_meter()
+
+    def choose_audio_folder(self):
+        if self.exporting:
+            return
+        directory = filedialog.askdirectory(title="Куда сохранить аудиодорожки", mustexist=True)
+        if directory:
+            self.audio_directory.set(directory)
+
+    def start_export(self):
+        if self.busy or not self.loaded_demo:
+            return
+        selected = [row.player.copy() for row in self.player_rows if row.enabled.get()]
+        if not selected:
+            return
+        if not self.audio_directory.get().strip():
+            self.choose_audio_folder()
+        directory = self.audio_directory.get().strip()
+        if not directory:
+            return
+        self.busy = self.exporting = True
+        self.export_button.set_enabled(False)
+        self.export_button.set_text("Сохраняю…")
+        self.run_button.set_enabled(False)
+        self.browse_button.set_enabled(False)
+        self.folder_button.set_enabled(False)
+        self.folder_entry.configure(state="disabled")
+        self.all_button.set_enabled(False)
+        self.none_button.set_enabled(False)
+        for team in self.teams:
+            team["select"].set_enabled(False)
+        for row in self.player_rows:
+            row.switch.enabled = False
+        self.status_label.configure(fg=MUTED)
+        self.status.set("Извлекаю голосовые записи из демки…")
+        threading.Thread(target=self.export_worker, args=(self.loaded_demo, directory, selected), daemon=True).start()
+
+    def export_worker(self, demo, directory, players):
+        try:
+            self.events.put(("export_done", export_audio(demo, directory, players)))
+        except Exception as exc:
+            self.events.put(("export_error", str(exc)))
+
+    def finish_export(self):
+        self.busy = self.exporting = False
+        self.run_button.set_enabled(True)
+        self.browse_button.set_enabled(True)
+        self.folder_button.set_enabled(True)
+        self.folder_entry.configure(state="normal")
+        self.all_button.set_enabled(True)
+        self.none_button.set_enabled(True)
+        for team in self.teams:
+            team["select"].set_enabled(bool(team["command"]))
+        for row in self.player_rows:
+            row.switch.enabled = True
+        self.export_button.set_text("Сохранить аудио")
+        self.update_custom()
 
     def select_team(self, number):
         for row in self.player_rows:
@@ -493,14 +575,23 @@ class App:
         self.copy_text(self.teams[number-1]["command"], f"Состав {number}")
 
     def copy_custom(self):
-        self.copy_text(self.custom_command.get(), "Микс")
+        self.copy_text(self.custom_command.get(), "Выбор")
 
     def run(self):
         self.root.mainloop()
 
 
 if __name__ == "__main__":
-    if len(sys.argv) == 4 and sys.argv[1] == "--self-test":
+    if len(sys.argv) == 5 and sys.argv[1] == "--self-test-audio":
+        try:
+            roster = analyze_demo(sys.argv[2])
+            players = [p for group in roster["groups"] for p in group["players"]]
+            result = export_audio(sys.argv[2], sys.argv[3], players)
+            pathlib.Path(sys.argv[4]).write_text(json.dumps(result, ensure_ascii=False), encoding="utf-8")
+        except Exception as exc:
+            pathlib.Path(sys.argv[4]).write_text(json.dumps({"error": str(exc)}, ensure_ascii=False), encoding="utf-8")
+            sys.exit(1)
+    elif len(sys.argv) == 4 and sys.argv[1] == "--self-test":
         try:
             result = analyze_demo(sys.argv[2])
             pathlib.Path(sys.argv[3]).write_text(json.dumps(result, ensure_ascii=False), encoding="utf-8")

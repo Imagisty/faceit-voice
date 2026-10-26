@@ -8,8 +8,10 @@ from __future__ import annotations
 import argparse
 import json
 import pathlib
+import re
 import subprocess
 import sys
+import tempfile
 
 
 def parser_executable() -> pathlib.Path:
@@ -73,6 +75,49 @@ def analyze_demo(raw_path: str, status=lambda message: None) -> dict:
             })
     return {"map": data.get("map") or "?", "tick": data["tick"],
             "found": len(roster), "expected": max(10, len(roster)), "groups": groups}
+
+
+def export_audio(raw_path: str, directory: str, players: list[dict]) -> dict:
+    """Save one compact, unmodified Ogg/Opus track per selected Steam ID."""
+    if not players:
+        raise ValueError("Выберите игроков для сохранения аудио.")
+    demo = pathlib.Path(raw_path)
+    if not demo.is_file():
+        raise ValueError("Файл демки больше не доступен. Выберите его заново.")
+    destination = pathlib.Path(directory).expanduser().resolve()
+    if not destination.is_dir():
+        raise ValueError("Папка сохранения не найдена. Выберите существующую папку.")
+    output = pathlib.Path(tempfile.mkdtemp(prefix="FACEIT-Voice-", dir=destination))
+    ids = list(dict.fromkeys(str(p["steamid"]) for p in players))
+    try:
+        proc = subprocess.run(
+            [str(parser_executable()), "--export", str(demo.resolve()), str(output), *ids],
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+        if proc.returncode:
+            detail = proc.stderr.strip()
+            if "No voice recordings found" in detail:
+                raise ValueError("У выбранных игроков нет записанного голоса в этой демке.")
+            if "codec other than Opus" in detail:
+                raise ValueError("Кодек голоса в этой демке не поддерживается. Нужна демка CS2 с голосом Opus.")
+            raise RuntimeError("Не удалось сохранить аудио: " + detail[-800:])
+        result = json.loads(proc.stdout)
+        names = {str(p["steamid"]): str(p["name"]) for p in players}
+        for track in result["tracks"]:
+            name = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", names[track["steamid"]]).strip(" .")[:60] or "player"
+            target = output / f"{name}_{track['steamid']}.opus"
+            pathlib.Path(track["file"]).rename(target)
+            track["file"] = str(target)
+        result["directory"] = str(output)
+        return result
+    except Exception:
+        # Only remove our newly created directory if it is empty.
+        try:
+            output.rmdir()
+        except OSError:
+            pass
+        raise
 
 
 def main() -> int:

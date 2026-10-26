@@ -7,6 +7,7 @@ use std::fs::File;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
+mod audio;
 
 #[derive(Clone, Serialize)]
 struct Player {
@@ -115,6 +116,7 @@ fn prepare_path(path: &Path) -> Result<PreparedDemo, Box<dyn std::error::Error>>
     let mut source = zstd::stream::read::Decoder::new(File::open(path)?)?;
     let mut dest = File::create(&target)?;
     if let Err(err) = std::io::copy(&mut source, &mut dest) {
+        drop(dest);
         let _ = std::fs::remove_file(&target);
         return Err(Box::new(err));
     }
@@ -157,7 +159,15 @@ fn scan(path: &Path) -> Result<ScanResult, Box<dyn std::error::Error>> {
 
 fn main() {
     let result = (|| -> Result<(), Box<dyn std::error::Error>> {
-        let path = std::env::args_os().nth(1).ok_or("usage: faceit_voice_parser DEMO")?;
+        let args: Vec<_> = std::env::args_os().skip(1).collect();
+        if args.first().is_some_and(|arg| arg == "--export") {
+            if args.len() < 4 { return Err("usage: faceit_voice_parser --export DEMO DIRECTORY STEAMID...".into()); }
+            let ids = args[3..].iter().map(|id| id.to_string_lossy().parse::<u64>()).collect::<Result<Vec<_>, _>>()?;
+            let result = audio::export(Path::new(&args[1]), Path::new(&args[2]), ids)?;
+            println!("{}", serde_json::to_string(&result)?);
+            return Ok(());
+        }
+        let path = args.first().ok_or("usage: faceit_voice_parser DEMO")?;
         let result = scan(Path::new(&path))?;
         println!("{}", serde_json::to_string(&result)?);
         Ok(())
