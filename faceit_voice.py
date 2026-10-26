@@ -6,36 +6,23 @@ With no path, the script prompts for one.
 from __future__ import annotations
 
 import argparse
-import importlib
+import json
 import pathlib
 import subprocess
 import sys
-import tempfile
 
 
-def load_parser(status=lambda message: None):
-    frozen = getattr(sys, "frozen", False)
-    if not frozen:
-        deps = pathlib.Path(__file__).resolve().with_name(".faceit_voice_deps")
-        sys.path.insert(0, str(deps))
-    try:
-        import zstandard
-        from demoparser2 import DemoParser
-    except ImportError:
-        if frozen:
-            raise RuntimeError("В сборке отсутствует библиотека для чтения демки")
-        status("Первый запуск: устанавливаю библиотеки...")
-        result = subprocess.run(
-            [sys.executable, "-m", "pip", "install", "--disable-pip-version-check", "--target", str(deps),
-             "zstandard>=0.23,<1", "demoparser2>=0.42,<1"],
-            capture_output=True, text=True, encoding="utf-8", errors="replace",
-        )
-        if result.returncode:
-            raise RuntimeError("Не удалось установить библиотеки: " + (result.stderr or result.stdout)[-800:])
-        importlib.invalidate_caches()
-        import zstandard
-        from demoparser2 import DemoParser
-    return zstandard, DemoParser
+def parser_executable() -> pathlib.Path:
+    if getattr(sys, "frozen", False):
+        path = pathlib.Path(sys._MEIPASS) / "faceit_voice_parser.exe"
+    else:
+        base = pathlib.Path(__file__).resolve().parent
+        path = base / "faceit_voice_parser.exe"
+        if not path.is_file():
+            path = base / "parser" / "target" / "release" / "faceit_voice_parser.exe"
+    if not path.is_file():
+        raise RuntimeError("Нативный парсер не найден. Запустите build.ps1 для сборки.")
+    return path
 
 
 def signed_32(value: int) -> int:
@@ -62,54 +49,30 @@ def analyze_demo(raw_path: str, status=lambda message: None) -> dict:
     if not (demo.name.lower().endswith(".dem.zst") or demo.suffix.lower() == ".dem"):
         raise ValueError("Нужен файл .dem либо .dem.zst")
 
-    zstandard, DemoParser = load_parser(status)
-    temporary = None
-    try:
-        if demo.name.lower().endswith(".zst"):
-            status("Распаковываю демку...")
-            with tempfile.NamedTemporaryFile(suffix=".dem", delete=False) as dst, demo.open("rb") as src:
-                temporary = pathlib.Path(dst.name)
-                with zstandard.ZstdDecompressor().stream_reader(src) as reader:
-                    while chunk := reader.read(4 * 1024 * 1024):
-                        dst.write(chunk)
-            parse_path = temporary
-        else:
-            parse_path = demo
-
-        status("Читаю игроков и слоты...")
-        parser = DemoParser(str(parse_path))
-        header = parser.parse_header()
-        info = parser.parse_player_info()
-        expected = len(info)
-        ticks = list(range(1000, 31000, 1000)) + list(range(40000, 250001, 10000))
-        frame = parser.parse_ticks(["user_id", "team_num"], ticks=ticks)
-        frame = frame[frame["team_num"].isin([2, 3]) & frame["user_id"].notna()]
-        if frame.empty:
-            raise ValueError("В демке не удалось прочитать игроков и их слоты")
-        counts = frame.groupby("tick")["steamid"].nunique()
-        best = int(counts[counts == counts.max()].index.min())
-        rows = frame[frame["tick"] == best].drop_duplicates("steamid")
-        roster = [
-            {"name": str(row["name"]), "steamid": str(int(row["steamid"])),
-             "user_id": int(row["user_id"]), "team": int(row["team_num"])}
-            for _, row in rows.iterrows()
-        ]
-        roster.sort(key=lambda p: p["user_id"])
-        groups = []
-        for number, team in enumerate((2, 3), start=1):
-            group = [p for p in roster if p["team"] == team]
-            if group:
-                low, high = commands(group)
-                groups.append({
-                    "number": number,
-                    "players": group,
-                    "command": f"tv_listen_voice_indices {low}; tv_listen_voice_indices_h {high}",
-                })
-        return {"map": header.get("map_name", "?"), "tick": best,
-                "found": len(roster), "expected": expected, "groups": groups}
-    finally:
-        if temporary is not None:
-            temporary.unlink(missing_ok=True)
+    status("Читаю игроков и слоты...")
+    proc = subprocess.run(
+        [str(parser_executable()), str(demo)],
+        capture_output=True, text=True, encoding="utf-8", errors="replace",
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+    )
+    if proc.returncode:
+        raise RuntimeError("Не удалось прочитать демку: " + proc.stderr[-1000:])
+    data = json.loads(proc.stdout)
+    roster = data["players"]
+    if not roster:
+        raise ValueError("В демке не удалось прочитать игроков и их слоты")
+    groups = []
+    for number, team in enumerate((2, 3), start=1):
+        group = [p for p in roster if p["team"] == team]
+        if group:
+            low, high = commands(group)
+            groups.append({
+                "number": number,
+                "players": group,
+                "command": f"tv_listen_voice_indices {low}; tv_listen_voice_indices_h {high}",
+            })
+    return {"map": data.get("map") or "?", "tick": data["tick"],
+            "found": len(roster), "expected": max(10, len(roster)), "groups": groups}
 
 
 def main() -> int:

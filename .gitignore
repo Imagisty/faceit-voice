@@ -2,6 +2,7 @@
 /.faceit_voice_deps/
 /build/
 /dist/
+/parser/target/
 /*.spec
 __pycache__/
 *.py[cod]

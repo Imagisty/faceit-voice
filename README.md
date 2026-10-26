@@ -27,13 +27,14 @@ The app can read `.dem.zst` directly to calculate the commands. CS2 itself needs
 
 ## Run from source
 
-Python 3.12+ is recommended:
+Install Python 3.12+ and Rust, then build the parser once:
 
 ```powershell
+cargo build --release --manifest-path parser\Cargo.toml
 python faceit_voice_gui.pyw
 ```
 
-On first source run, required Python packages are installed into `.faceit_voice_deps` next to the script. For a command-line version:
+For a command-line version:
 
 ```powershell
 python faceit_voice.py "C:\path\to\match.dem.zst"
@@ -41,7 +42,7 @@ python faceit_voice.py "C:\path\to\match.dem.zst"
 
 ## Build the executable
 
-Run `build.ps1` on Windows with Python 3.12. It creates `dist\FACEIT-Voice.exe` with PyInstaller. Package versions are pinned in `requirements-build.txt`. The build includes PyArrow and Polars because `demoparser2` loads them at runtime.
+Run `build.ps1` on Windows with Python 3.12 and Rust. It builds the small Rust demo parser and packages it with the Tkinter GUI into `dist\FACEIT-Voice.exe`. The build only needs PyInstaller from `requirements-build.txt`.
 
 ## Privacy and attribution
 

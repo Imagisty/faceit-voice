@@ -1,8 +1,1 @@
-demoparser2==0.42.1
-zstandard==0.25.0
-numpy==2.5.4
-pandas==3.1.0
-pyarrow==26.0.0
-polars==2.1.0
-polars-runtime-32==2.1.0
 pyinstaller==6.22.3
