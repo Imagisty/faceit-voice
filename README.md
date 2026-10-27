@@ -18,7 +18,7 @@
 - Позволяет выбрать папку для сохранения аудио.
 - Читает как обычные `.dem`, так и сжатые `.dem.zst`.
 - Принимает демки перетаскиванием из Проводника.
-- Добавляет демку в папку CS2 под выбранным названием и копирует команду запуска.
+- Добавляет демку в папку CS2 под выбранным названием и позволяет скопировать команду запуска отдельной кнопкой.
 
 ## Слушать голоса в CS2
 
@@ -29,9 +29,9 @@
 ## Добавить демку в игру
 
 1. Выбери или перетащи демку в окно.
-2. Нажми **Добавить в CS2** и введи название.
+2. Введи желаемое название в правой панели и нажми **Добавить в CS2**.
 3. Программа найдёт установленную CS2 и сохранит файл `.dem` в `game\csgo`. Архив `.dem.zst` распакуется автоматически. Если папка игры не найдена, программа предложит указать её.
-4. Команда `playdemo "название"` скопируется в буфер. Вставь её в консоль CS2.
+4. Нажми **Копировать playdemo**, если нужна команда запуска, и вставь её в консоль CS2. Автоматически буфер обмена не меняется.
 
 Исходный файл сохраняется. Если название уже занято, программа предложит другое и не перезапишет существующую демку.
 
@@ -98,9 +98,9 @@ Each command sets both `tv_listen_voice_indices` and `tv_listen_voice_indices_h`
 ### Add a demo to CS2
 
 1. Select or drop a demo into the app.
-2. Click **Добавить в CS2** (Add to CS2) and enter a name.
+2. Enter a name in the right panel and click **Добавить в CS2** (Add to CS2).
 3. The app locates CS2 and saves the `.dem` file under `game\csgo`, automatically unpacking `.dem.zst` files. If CS2 cannot be found, choose the game folder manually.
-4. The command `playdemo "name"` is copied to your clipboard. Paste it into the CS2 console.
+4. Click **Копировать playdemo** (Copy playdemo) when you need the playback command, then paste it into the CS2 console. The clipboard is never changed automatically.
 
 The original file is preserved. Existing demos are not overwritten; choose a different name if it is already in use.
 

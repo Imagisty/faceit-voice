@@ -8,7 +8,7 @@ import queue
 import sys
 import threading
 import tkinter as tk
-from tkinter import filedialog, font as tkfont, simpledialog, messagebox
+from tkinter import filedialog, font as tkfont
 
 from faceit_voice import analyze_demo, commands, export_audio
 from switch_art import SWITCH_IMAGES
@@ -183,9 +183,9 @@ class App:
         self.root = tk.Tk()
         self.root.title("FACEIT Voice")
         width = min(1200, self.root.winfo_screenwidth() - 40)
-        height = min(800, self.root.winfo_screenheight() - 90)
+        height = min(840, self.root.winfo_screenheight() - 90)
         self.root.geometry(f"{width}x{height}+{max(0, (self.root.winfo_screenwidth()-width)//2)}+{max(10, (self.root.winfo_screenheight()-height)//2-25)}")
-        self.root.minsize(min(1060, width), min(700, height))
+        self.root.minsize(min(1060, width), min(780, height))
         self.root.configure(bg=BG)
         self.root.option_add("*Font", ("Segoe UI", 10))
         self.apply_window_style()
@@ -194,6 +194,8 @@ class App:
         self.status = tk.StringVar(value="")
         self.match = tk.StringVar(value="Демка не выбрана")
         self.audio_directory = tk.StringVar()
+        self.demo_title = tk.StringVar()
+        self.play_command = ""
         self.loaded_demo = None
         self.pending_demo = None
         self.exporting = False
@@ -263,8 +265,6 @@ class App:
         self.browse_button.grid(row=1, column=1, padx=(0, 8))
         self.run_button = Button(file_body, "Разобрать демку", self.start, width=162, primary=True)
         self.run_button.grid(row=1, column=2)
-        self.install_button = Button(file_body, "Добавить в CS2", self.start_install, width=146)
-        self.install_button.grid(row=1, column=3, padx=(8, 0))
 
         section = tk.Frame(main, bg=BG, height=54)
         section.grid(row=2, column=0, sticky="ew")
@@ -317,24 +317,40 @@ class App:
         right = output.content
         count_row = tk.Frame(right, bg=right.cget("bg"))
         count_row.pack(fill="x", pady=(4, 0))
-        self.count = tk.Label(count_row, text="0", bg=right.cget("bg"), fg=TEXT, font=("Bahnschrift", 34), bd=0)
+        self.count = tk.Label(count_row, text="0", bg=right.cget("bg"), fg=TEXT, font=("Bahnschrift", 26), bd=0)
         self.count.pack(side="left", anchor="s")
         self.total = self.label(count_row, "игроков выбрано", color=MUTED, size=10)
         self.total.pack(side="left", anchor="s", padx=(10, 0), pady=(0, 10))
         self.meter = tk.Canvas(right, height=18, bg=right.cget("bg"), highlightthickness=0)
-        self.meter.pack(fill="x", pady=(4, 12))
+        self.meter.pack(fill="x", pady=(0, 6))
         self.meter.bind("<Configure>", lambda e: self.paint_meter())
-        self.label(right, "Команда для консоли CS2", size=9, color=MUTED).pack(anchor="w", pady=(0, 10))
-        code_box = tk.Frame(right, bg=BG, padx=12, pady=10)
+        self.label(right, "Команда для консоли CS2", size=9, color=MUTED).pack(anchor="w", pady=(0, 6))
+        code_box = tk.Frame(right, bg=BG, padx=12, pady=6)
         code_box.pack(fill="x")
         self.code = tk.Label(code_box, text="Выбери игроков\nпереключателями слева", bg=BG, fg=MUTED,
                              font=("Consolas", 9), anchor="w", justify="left", height=2, bd=0)
         self.code.pack(fill="x")
-        self.custom_copy = Button(right, "Копировать команду", self.copy_custom, primary=True, height=44)
-        self.custom_copy.pack(fill="x", pady=(12, 0))
+        self.custom_copy = Button(right, "Копировать команду", self.copy_custom, primary=True, height=36)
+        self.custom_copy.pack(fill="x", pady=(8, 0))
         self.custom_copy.set_enabled(False)
         self.feedback = self.label(right, "", size=9, color=GREEN)
-        self.feedback.pack(anchor="w", pady=(8, 0))
+        tk.Frame(right, bg=BORDER, height=1).pack(fill="x", pady=(10, 10))
+        self.label(right, "Название демки в CS2", size=10, bold=True).pack(anchor="w", pady=(0, 8))
+        name_box = tk.Frame(right, bg=FIELD, padx=10, pady=8,
+                            highlightthickness=1, highlightbackground=BORDER)
+        name_box.pack(fill="x")
+        self.label(name_box, ".dem", size=10, color=DIM).pack(side="right", padx=(8, 0))
+        self.demo_entry = tk.Entry(name_box, textvariable=self.demo_title, bg=FIELD, fg=TEXT,
+                                   insertbackground=ACCENT, relief="flat", bd=0, width=1)
+        self.demo_entry.pack(side="left", fill="x", expand=True)
+        self.demo_entry.bind("<Return>", lambda e: self.start_install())
+        self.demo_entry.bind("<FocusIn>", lambda e: name_box.configure(highlightbackground=ACCENT))
+        self.demo_entry.bind("<FocusOut>", lambda e: name_box.configure(highlightbackground=BORDER))
+        self.install_button = Button(right, "Добавить в CS2", self.start_install, height=36)
+        self.install_button.pack(fill="x", pady=(8, 4))
+        self.play_copy = Button(right, "Копировать playdemo", self.copy_play_command, height=30)
+        self.play_copy.pack(fill="x")
+        self.play_copy.set_enabled(False)
         audio_panel = Surface(main, height=100, padding=16)
         audio_panel.grid(row=4, column=0, sticky="ew", pady=(12, 0))
         audio_body = audio_panel.content
@@ -357,7 +373,7 @@ class App:
         footer.pack_propagate(False)
         self.status_label = self.label(footer, textvariable=self.status, color=MUTED, size=9, anchor="w")
         self.status_label.pack(side="left", fill="x", expand=True)
-        self.label(footer, "FACEIT Voice 1.4", color=DIM, size=9).pack(side="right", padx=(12, 0))
+        self.label(footer, "FACEIT Voice 1.4.1", color=DIM, size=9).pack(side="right", padx=(12, 0))
         self.clear_result()
 
     def resize_roster(self, team):
@@ -421,6 +437,13 @@ class App:
         if not pathlib.Path(source).is_file():
             self.status.set("Сначала выберите демку или перетащите её в окно.")
             return
+        try:
+            name = demo_name(self.demo_title.get())
+        except ValueError as exc:
+            self.status.set(str(exc))
+            self.status_label.configure(fg=ACCENT)
+            self.demo_entry.focus_set()
+            return
         game = find_cs2()
         if game is None:
             selected = filedialog.askdirectory(parent=self.root, title="Выберите папку Counter-Strike Global Offensive")
@@ -428,27 +451,15 @@ class App:
                 return
             game = csgo_directory(selected)
             if game is None:
-                messagebox.showerror("CS2 не найдена", "В этой папке нет установленной CS2.", parent=self.root)
+                self.status.set("В этой папке нет установленной CS2.")
+                self.status_label.configure(fg=ACCENT)
                 return
-        initial = pathlib.Path(source).name
-        if initial.lower().endswith(".zst"):
-            initial = initial[:-4]
-        if initial.lower().endswith(".dem"):
-            initial = initial[:-4]
-        while True:
-            value = simpledialog.askstring("Добавить демку в CS2", "Название демки:",
-                                           initialvalue=initial, parent=self.root)
-            if value is None:
-                return
-            try:
-                name = demo_name(value)
-                destination = game / (name + ".dem")
-                if destination.exists() and destination.resolve() != pathlib.Path(source).resolve():
-                    raise ValueError("Демка с таким названием уже есть. Введите другое название.")
-                break
-            except ValueError as exc:
-                messagebox.showerror("Название демки", str(exc), parent=self.root)
-                initial = value
+        destination = game / (name + ".dem")
+        if destination.exists() and destination.resolve() != pathlib.Path(source).resolve():
+            self.status.set("Демка с таким названием уже есть. Введите другое название.")
+            self.status_label.configure(fg=ACCENT)
+            self.demo_entry.focus_set()
+            return
         self.busy = True
         self.run_button.set_enabled(False)
         self.browse_button.set_enabled(False)
@@ -479,6 +490,13 @@ class App:
             return
         self.busy = True
         self.pending_demo = path
+        if not self.demo_title.get().strip():
+            name = pathlib.Path(path).name
+            if name.lower().endswith(".zst"):
+                name = name[:-4]
+            if name.lower().endswith(".dem"):
+                name = name[:-4]
+            self.demo_title.set(name)
         self.install_button.set_enabled(False)
         self.run_button.set_enabled(False)
         self.browse_button.set_enabled(False)
@@ -516,10 +534,10 @@ class App:
                     self.status.set(value)
                 elif kind == "install_done":
                     self.finish_install()
-                    self.root.clipboard_clear()
-                    self.root.clipboard_append(value["command"])
-                    self.status.set(f"Добавлено в CS2. Скопировано: {value['command']}")
-                    messagebox.showinfo("Демка добавлена в CS2", f"{pathlib.Path(value['file']).name}\n\nКоманда скопирована:\n{value['command']}\n\nВставьте её в консоль CS2.", parent=self.root)
+                    self.play_command = value["command"]
+                    self.play_copy.set_enabled(True)
+                    self.status_label.configure(fg=GREEN)
+                    self.status.set(f"Добавлено в CS2: {pathlib.Path(value['file']).name}")
                 elif kind == "install_error":
                     self.finish_install()
                     self.status.set(value.replace("\n", " ")[:150])
@@ -676,6 +694,12 @@ class App:
 
     def copy_team(self, number):
         self.copy_text(self.teams[number-1]["command"], f"Состав {number}")
+
+    def copy_play_command(self):
+        if self.play_command:
+            self.root.clipboard_clear()
+            self.root.clipboard_append(self.play_command)
+            self.status.set(f"Скопировано: {self.play_command}")
 
     def copy_custom(self):
         self.copy_text(self.custom_command.get(), "Выбор")
