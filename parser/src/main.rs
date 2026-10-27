@@ -160,6 +160,17 @@ fn scan(path: &Path) -> Result<ScanResult, Box<dyn std::error::Error>> {
 fn main() {
     let result = (|| -> Result<(), Box<dyn std::error::Error>> {
         let args: Vec<_> = std::env::args_os().skip(1).collect();
+        if args.first().is_some_and(|arg| arg == "--unpack") {
+            if args.len() != 3 { return Err("usage: faceit_voice_parser --unpack INPUT OUTPUT".into()); }
+            let mut reader = zstd::stream::read::Decoder::new(File::open(&args[1])?)?;
+            let mut writer = std::fs::OpenOptions::new().write(true).create_new(true).open(&args[2])?;
+            if let Err(error) = std::io::copy(&mut reader, &mut writer) {
+                drop(writer);
+                let _ = std::fs::remove_file(&args[2]);
+                return Err(error.into());
+            }
+            return Ok(());
+        }
         if args.first().is_some_and(|arg| arg == "--export") {
             if args.len() < 4 { return Err("usage: faceit_voice_parser --export DEMO DIRECTORY STEAMID...".into()); }
             let ids = args[3..].iter().map(|id| id.to_string_lossy().parse::<u64>()).collect::<Result<Vec<_>, _>>()?;

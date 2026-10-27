@@ -7,7 +7,7 @@
 1. Открой [последний релиз](https://github.com/Imagisty/faceit-voice/releases/latest).
 2. В разделе **Assets** скачай **FACEIT-Voice.exe**.
 3. Запусти **FACEIT-Voice.exe**. Поддерживаются Windows 10/11 x64.
-4. Нажми **Выбрать файл** и укажи демку `.dem.zst` или `.dem`. После выбора она разберётся автоматически. Также можно вставить путь и нажать **Разобрать демку**.
+4. Перетащи демку `.dem.zst` или `.dem` из Проводника в окно программы — она разберётся автоматически. Также можно нажать **Выбрать файл** или вставить путь и нажать **Разобрать демку**.
 
 ## Что умеет
 
@@ -17,6 +17,8 @@
 - Извлекает голосовые записи в отдельные аудиодорожки `.opus` с никами игроков в названиях файлов.
 - Позволяет выбрать папку для сохранения аудио.
 - Читает как обычные `.dem`, так и сжатые `.dem.zst`.
+- Принимает демки перетаскиванием из Проводника.
+- Добавляет демку в папку CS2 под выбранным названием и копирует команду запуска.
 
 ## Слушать голоса в CS2
 
@@ -24,7 +26,16 @@
 
 Открой эту демку в CS2 и вставь скопированную строку в консоль. Она задаёт оба параметра: `tv_listen_voice_indices` и `tv_listen_voice_indices_h`. Значение второго параметра `0` нормально для игроков со слотами 0–31.
 
-Для `playdemo` в CS2 нужен распакованный `.dem`. Приложение может прочитать `.dem.zst` напрямую.
+## Добавить демку в игру
+
+1. Выбери или перетащи демку в окно.
+2. Нажми **Добавить в CS2** и введи название.
+3. Программа найдёт установленную CS2 и сохранит файл `.dem` в `game\csgo`. Архив `.dem.zst` распакуется автоматически. Если папка игры не найдена, программа предложит указать её.
+4. Команда `playdemo "название"` скопируется в буфер. Вставь её в консоль CS2.
+
+Исходный файл сохраняется. Если название уже занято, программа предложит другое и не перезапишет существующую демку.
+
+Папка и способ запуска соответствуют [инструкции FACEIT](https://support.faceit.com/hc/en-us/articles/10622392832412-How-to-download-and-watch-a-CS2-demo).
 
 ## Сохранить аудиодорожки
 
@@ -65,7 +76,7 @@ FACEIT Voice is a Windows application that reads FACEIT CS2 demos, generates voi
 1. Open the [latest release](https://github.com/Imagisty/faceit-voice/releases/latest).
 2. Download **FACEIT-Voice.exe** from **Assets**.
 3. Run **FACEIT-Voice.exe**. Windows 10/11 x64 is supported.
-4. Click **Выбрать файл** (Choose file) and select a `.dem.zst` or `.dem` demo. It will be parsed automatically. You can also paste a path and click **Разобрать демку** (Parse demo).
+4. Drag a `.dem.zst` or `.dem` file from File Explorer into the app to parse it automatically. You can also click **Выбрать файл** (Choose file), or paste a path and click **Разобрать демку** (Parse demo).
 
 ### Features
 
@@ -75,12 +86,23 @@ FACEIT Voice is a Windows application that reads FACEIT CS2 demos, generates voi
 - Voice extraction to separate `.opus` tracks named after each player.
 - An audio output folder picker.
 - Support for both `.dem` and compressed `.dem.zst` files.
+- Drag-and-drop demo loading from File Explorer.
+- Copy demos into CS2 with a custom name and get the playback command.
 
 ### Listen in CS2
 
 Click **Копировать команду** (Copy command) under a team roster, or select individual players and use the copy button on the right. Play the same demo in CS2 and paste the command into the developer console.
 
-Each command sets both `tv_listen_voice_indices` and `tv_listen_voice_indices_h`. The second value being `0` is normal when the selected voice slots are below 32. CS2's `playdemo` requires an unpacked `.dem`; the app itself can read `.dem.zst` directly.
+Each command sets both `tv_listen_voice_indices` and `tv_listen_voice_indices_h`. The second value being `0` is normal when the selected voice slots are below 32.
+
+### Add a demo to CS2
+
+1. Select or drop a demo into the app.
+2. Click **Добавить в CS2** (Add to CS2) and enter a name.
+3. The app locates CS2 and saves the `.dem` file under `game\csgo`, automatically unpacking `.dem.zst` files. If CS2 cannot be found, choose the game folder manually.
+4. The command `playdemo "name"` is copied to your clipboard. Paste it into the CS2 console.
+
+The original file is preserved. Existing demos are not overwritten; choose a different name if it is already in use.
 
 ### Export voice tracks
 

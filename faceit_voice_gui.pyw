@@ -8,10 +8,12 @@ import queue
 import sys
 import threading
 import tkinter as tk
-from tkinter import filedialog, font as tkfont
+from tkinter import filedialog, font as tkfont, simpledialog, messagebox
 
 from faceit_voice import analyze_demo, commands, export_audio
 from switch_art import SWITCH_IMAGES
+from game_install import find_cs2, csgo_directory, demo_name, install_demo
+from windows_drop import FileDrop
 
 BG = "#14171C"
 PANEL = "#1C2027"
@@ -200,6 +202,11 @@ class App:
         self.teams = []
         self.busy = False
         self.build()
+        if sys.platform == "win32":
+            try:
+                self.file_drop = FileDrop(self.root, self.events)
+            except OSError:
+                self.status.set("Перетаскивание недоступно. Используйте «Выбрать файл».")
         self.root.after(100, self.poll_events)
         self.root.bind("<Control-o>", lambda e: self.browse())
         if len(sys.argv) > 1 and not sys.argv[1].startswith("--"):
@@ -246,7 +253,7 @@ class App:
         file_body = file_panel.content
         file_body.columnconfigure(0, weight=1)
         self.label(file_body, "Демка матча", bold=True).grid(row=0, column=0, sticky="w", pady=(0, 8))
-        self.label(file_body, ".dem  /  .dem.zst", color=MUTED, size=9).grid(row=0, column=1, columnspan=2, sticky="e", pady=(0, 8))
+        self.label(file_body, "Перетащи .dem / .dem.zst в окно", color=MUTED, size=9).grid(row=0, column=1, columnspan=3, sticky="e", pady=(0, 8))
         entry = tk.Entry(file_body, textvariable=self.path, bg=FIELD, fg=TEXT,
                          insertbackground=ACCENT, relief="flat", bd=0, font=("Segoe UI", 10),
                          highlightthickness=1, highlightbackground=BORDER, highlightcolor=ACCENT)
@@ -256,6 +263,8 @@ class App:
         self.browse_button.grid(row=1, column=1, padx=(0, 8))
         self.run_button = Button(file_body, "Разобрать демку", self.start, width=162, primary=True)
         self.run_button.grid(row=1, column=2)
+        self.install_button = Button(file_body, "Добавить в CS2", self.start_install, width=146)
+        self.install_button.grid(row=1, column=3, padx=(8, 0))
 
         section = tk.Frame(main, bg=BG, height=54)
         section.grid(row=2, column=0, sticky="ew")
@@ -348,7 +357,7 @@ class App:
         footer.pack_propagate(False)
         self.status_label = self.label(footer, textvariable=self.status, color=MUTED, size=9, anchor="w")
         self.status_label.pack(side="left", fill="x", expand=True)
-        self.label(footer, "FACEIT Voice 1.3.1", color=DIM, size=9).pack(side="right", padx=(12, 0))
+        self.label(footer, "FACEIT Voice 1.4", color=DIM, size=9).pack(side="right", padx=(12, 0))
         self.clear_result()
 
     def resize_roster(self, team):
@@ -391,6 +400,76 @@ class App:
             self.path.set(path)
             self.start()
 
+    def accept_drop(self, paths):
+        if self.busy:
+            self.status.set("Дождитесь завершения текущей операции и перетащите файл ещё раз.")
+            return
+        if len(paths) != 1:
+            self.status.set("Перетащите одну демку за раз.")
+            return
+        path = pathlib.Path(paths[0])
+        if not path.is_file() or not (path.name.lower().endswith(".dem.zst") or path.suffix.lower() == ".dem"):
+            self.status.set("Нужен файл .dem или .dem.zst.")
+            return
+        self.path.set(str(path))
+        self.start()
+
+    def start_install(self):
+        if self.busy:
+            return
+        source = self.path.get().strip().strip('"')
+        if not pathlib.Path(source).is_file():
+            self.status.set("Сначала выберите демку или перетащите её в окно.")
+            return
+        game = find_cs2()
+        if game is None:
+            selected = filedialog.askdirectory(parent=self.root, title="Выберите папку Counter-Strike Global Offensive")
+            if not selected:
+                return
+            game = csgo_directory(selected)
+            if game is None:
+                messagebox.showerror("CS2 не найдена", "В этой папке нет установленной CS2.", parent=self.root)
+                return
+        initial = pathlib.Path(source).name
+        if initial.lower().endswith(".zst"):
+            initial = initial[:-4]
+        if initial.lower().endswith(".dem"):
+            initial = initial[:-4]
+        while True:
+            value = simpledialog.askstring("Добавить демку в CS2", "Название демки:",
+                                           initialvalue=initial, parent=self.root)
+            if value is None:
+                return
+            try:
+                name = demo_name(value)
+                destination = game / (name + ".dem")
+                if destination.exists() and destination.resolve() != pathlib.Path(source).resolve():
+                    raise ValueError("Демка с таким названием уже есть. Введите другое название.")
+                break
+            except ValueError as exc:
+                messagebox.showerror("Название демки", str(exc), parent=self.root)
+                initial = value
+        self.busy = True
+        self.run_button.set_enabled(False)
+        self.browse_button.set_enabled(False)
+        self.install_button.set_enabled(False)
+        self.export_button.set_enabled(False)
+        self.install_button.set_text("Добавляю…")
+        self.status_label.configure(fg=MUTED)
+        self.status.set("Добавляю демку в папку CS2…")
+        threading.Thread(target=self.install_worker, args=(source, str(game), name), daemon=True).start()
+
+    def install_worker(self, source, game, name):
+        try:
+            self.events.put(("install_done", install_demo(source, game, name)))
+        except Exception as exc:
+            self.events.put(("install_error", str(exc)))
+
+    def finish_install(self):
+        self.finish_loading()
+        self.install_button.set_text("Добавить в CS2")
+        self.update_custom()
+
     def start(self):
         if self.busy:
             return
@@ -400,6 +479,7 @@ class App:
             return
         self.busy = True
         self.pending_demo = path
+        self.install_button.set_enabled(False)
         self.run_button.set_enabled(False)
         self.browse_button.set_enabled(False)
         self.run_button.set_text("Читаю демку…")
@@ -419,6 +499,7 @@ class App:
 
     def finish_loading(self):
         self.busy = False
+        self.install_button.set_enabled(True)
         self.run_button.set_enabled(True)
         self.browse_button.set_enabled(True)
         self.run_button.set_text("Разобрать демку")
@@ -429,6 +510,20 @@ class App:
                 kind, value = self.events.get_nowait()
                 if kind == "status":
                     self.status.set(value)
+                elif kind == "drop":
+                    self.accept_drop(value)
+                elif kind == "drop_error":
+                    self.status.set(value)
+                elif kind == "install_done":
+                    self.finish_install()
+                    self.root.clipboard_clear()
+                    self.root.clipboard_append(value["command"])
+                    self.status.set(f"Добавлено в CS2. Скопировано: {value['command']}")
+                    messagebox.showinfo("Демка добавлена в CS2", f"{pathlib.Path(value['file']).name}\n\nКоманда скопирована:\n{value['command']}\n\nВставьте её в консоль CS2.", parent=self.root)
+                elif kind == "install_error":
+                    self.finish_install()
+                    self.status.set(value.replace("\n", " ")[:150])
+                    self.status_label.configure(fg=ACCENT)
                 elif kind == "done":
                     self.show_result(value)
                 elif kind == "error":
@@ -525,6 +620,7 @@ class App:
         self.busy = self.exporting = True
         self.export_button.set_enabled(False)
         self.export_button.set_text("Сохраняю…")
+        self.install_button.set_enabled(False)
         self.run_button.set_enabled(False)
         self.browse_button.set_enabled(False)
         self.folder_button.set_enabled(False)
@@ -547,6 +643,7 @@ class App:
 
     def finish_export(self):
         self.busy = self.exporting = False
+        self.install_button.set_enabled(True)
         self.run_button.set_enabled(True)
         self.browse_button.set_enabled(True)
         self.folder_button.set_enabled(True)
