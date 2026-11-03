@@ -37,6 +37,12 @@
 
 Папка и способ запуска соответствуют [инструкции FACEIT](https://support.faceit.com/hc/en-us/articles/10622392832412-How-to-download-and-watch-a-CS2-demo).
 
+## Исправление вылета при запуске демки
+
+При нажатии **Добавить в CS2** программа проверяет известную проблему с поздними данными `instancebaseline` (в том числе `CChicken`) и исправляет копию перед сохранением. Если эта проблема не найдена, содержимое демки не меняется. Для уже лежащей в игре демки с тем же названием исправленная копия получает суффикс `_fixed`. Оригинал и существующие файлы не перезаписываются.
+
+Это исправление конкретного сбоя, а не всех возможных вылетов CS2. Если проверка или исправление не удались, программа сообщает об ошибке. Поддерживаются распакованные демки размером до 2 ГиБ. Проверка работает без интернета.
+
 ## Сохранить аудиодорожки
 
 1. Разбери демку и выбери игроков переключателями. Для целой команды нажми **Выбрать** над её списком.
@@ -104,6 +110,12 @@ Each command sets both `tv_listen_voice_indices` and `tv_listen_voice_indices_h`
 
 The original file is preserved. Existing demos are not overwritten; choose a different name if it is already in use.
 
+### Repair a demo startup crash
+
+**Добавить в CS2** (Add to CS2) checks for late `instancebaseline` data, including the known `CChicken` startup failure, and repairs the staged copy when needed. Demos without this issue remain byte-identical. When the input is already the destination, a repaired copy uses the `_fixed` suffix. Original and existing files are never overwritten.
+
+This targets one known failure, not every CS2 crash. A failed check or repair is reported as an error. Uncompressed demos up to 2 GiB are supported. Processing works offline.
+
 ### Export voice tracks
 
 1. Parse a demo and select players. Use **Выбрать** (Select) above a roster to select a whole team.
@@ -129,3 +141,8 @@ Run `build.ps1` to create `dist\FACEIT-Voice.exe`.
 ---
 
 MIT License. Неофициальный проект, не связан с FACEIT или Valve. Unofficial project, not affiliated with FACEIT or Valve. See [third-party notices](THIRD_PARTY_NOTICES.md).
+
+
+## Third-party notices
+
+The startup repair uses [CS2 Demo Fixer](https://github.com/NewTanachot/cs2-faceit-demo-fixer) by NewTanachot (MIT) with [QuickJS-ng](https://github.com/quickjs-ng/quickjs) (MIT). Source versions, checksums and licenses are included in `vendor/demo-fixer`. FACEIT Voice disables the fixer's unrelated text sanitization and only applies the baseline startup repair.

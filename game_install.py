@@ -7,6 +7,7 @@ import subprocess
 import tempfile
 
 from faceit_voice import parser_executable
+from demo_repair import repair_demo
 
 
 def csgo_directory(path):
@@ -75,9 +76,8 @@ def install_demo(source, game_directory, name):
         raise ValueError("Выберите файл .dem или .dem.zst.")
     destination = game / (name + ".dem")
     command = f'playdemo "{name}"'
-    if source == destination.resolve():
-        return {"file": str(destination), "command": command}
-    if destination.exists():
+    same_file = source == destination.resolve()
+    if destination.exists() and not same_file:
         raise FileExistsError(f"Демка {name}.dem уже есть в игре. Выберите другое название.")
     destination.parent.mkdir(exist_ok=True)
     # Stage on the destination volume, so no incomplete .dem becomes visible.
@@ -95,9 +95,18 @@ def install_demo(source, game_directory, name):
         with temporary.open("rb") as stream:
             if stream.read(8) != b"PBDEMS2\0":
                 raise ValueError("Файл не является демкой CS2.")
+        report = repair_demo(temporary)
+        if same_file:
+            if not report['changed']:
+                return {"file": str(source), "command": command, "repaired": False}
+            name += "_fixed"
+            destination = game / (name + ".dem")
+            command = f'playdemo "{name}"'
+            if destination.exists():
+                raise FileExistsError(f"Демка {name}.dem уже есть в игре. Выберите другое название.")
         # Windows rename fails if a file appeared at this name in the meantime.
         temporary.rename(destination)
-        return {"file": str(destination), "command": command}
+        return {"file": str(destination), "command": command, "repaired": report["changed"]}
     finally:
         temporary.unlink(missing_ok=True)
         staging.rmdir()

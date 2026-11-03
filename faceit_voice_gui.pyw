@@ -373,7 +373,7 @@ class App:
         footer.pack_propagate(False)
         self.status_label = self.label(footer, textvariable=self.status, color=MUTED, size=9, anchor="w")
         self.status_label.pack(side="left", fill="x", expand=True)
-        self.label(footer, "FACEIT Voice 1.4.1", color=DIM, size=9).pack(side="right", padx=(12, 0))
+        self.label(footer, "FACEIT Voice 1.5.0", color=DIM, size=9).pack(side="right", padx=(12, 0))
         self.clear_result()
 
     def resize_roster(self, team):
@@ -467,7 +467,7 @@ class App:
         self.export_button.set_enabled(False)
         self.install_button.set_text("Добавляю…")
         self.status_label.configure(fg=MUTED)
-        self.status.set("Добавляю демку в папку CS2…")
+        self.status.set("Проверяю демку и добавляю в CS2…")
         threading.Thread(target=self.install_worker, args=(source, str(game), name), daemon=True).start()
 
     def install_worker(self, source, game, name):
@@ -537,7 +537,8 @@ class App:
                     self.play_command = value["command"]
                     self.play_copy.set_enabled(True)
                     self.status_label.configure(fg=GREEN)
-                    self.status.set(f"Добавлено в CS2: {pathlib.Path(value['file']).name}")
+                    prefix = "Исправлен сбой запуска. Добавлено в CS2" if value.get("repaired") else "Добавлено в CS2"
+                    self.status.set(f"{prefix}: {pathlib.Path(value['file']).name}")
                 elif kind == "install_error":
                     self.finish_install()
                     self.status.set(value.replace("\n", " ")[:150])
@@ -709,7 +710,14 @@ class App:
 
 
 if __name__ == "__main__":
-    if len(sys.argv) == 5 and sys.argv[1] == "--self-test-audio":
+    if len(sys.argv) == 6 and sys.argv[1] == "--self-test-install":
+        try:
+            result = install_demo(sys.argv[2], sys.argv[3], sys.argv[4])
+            pathlib.Path(sys.argv[5]).write_text(json.dumps(result, ensure_ascii=False), encoding="utf-8")
+        except Exception as exc:
+            pathlib.Path(sys.argv[5]).write_text(json.dumps({"error": str(exc)}, ensure_ascii=False), encoding="utf-8")
+            sys.exit(1)
+    elif len(sys.argv) == 5 and sys.argv[1] == "--self-test-audio":
         try:
             roster = analyze_demo(sys.argv[2])
             players = [p for group in roster["groups"] for p in group["players"]]
