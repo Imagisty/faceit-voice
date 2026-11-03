@@ -14,6 +14,7 @@ from faceit_voice import analyze_demo, commands, export_audio
 from switch_art import SWITCH_IMAGES
 from game_install import find_cs2, csgo_directory, demo_name, install_demo
 from windows_drop import FileDrop
+from keyboard_shortcuts import install_shortcuts
 
 BG = "#14171C"
 PANEL = "#1C2027"
@@ -210,7 +211,7 @@ class App:
             except OSError:
                 self.status.set("Перетаскивание недоступно. Используйте «Выбрать файл».")
         self.root.after(100, self.poll_events)
-        self.root.bind("<Control-o>", lambda e: self.browse())
+        self.keyboard_handler = install_shortcuts(self.root, self.browse)
         if len(sys.argv) > 1 and not sys.argv[1].startswith("--"):
             self.path.set(sys.argv[1])
             self.root.after(200, self.start)
@@ -373,7 +374,7 @@ class App:
         footer.pack_propagate(False)
         self.status_label = self.label(footer, textvariable=self.status, color=MUTED, size=9, anchor="w")
         self.status_label.pack(side="left", fill="x", expand=True)
-        self.label(footer, "FACEIT Voice 1.5.0", color=DIM, size=9).pack(side="right", padx=(12, 0))
+        self.label(footer, "FACEIT Voice 1.5.1", color=DIM, size=9).pack(side="right", padx=(12, 0))
         self.clear_result()
 
     def resize_roster(self, team):
